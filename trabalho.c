@@ -26,6 +26,7 @@ setores_t* procurar_setor(setores_t *lista, string str);
 sensor_t* procurar_sensor(setores_t *lista, string str);
 
 void excluir_lista(setores_t **lista, sensor_t *sensor_excluido, setores_t *setor_achado);
+void execucao_lista(setores_t *lista);
 
 void relatorio_de_sensores_geral(sensor_t *lista_sensores, setores_t *lista_setores);
 void relatorio_de_sensores_por_tipo(sensor_t *lista_sensores, setores_t *lista_setores);
@@ -45,10 +46,8 @@ void importar_arq(sensor_t **lista_sensores, setores_t **lista_setores, char *no
 
 int main() {
     int opcao, opcao_a, opcao_b, opcao_c;
-    sensor_t *sensores_todos = NULL, *novo_sensor = NULL, *achar_sensor = NULL;
-    setores_t *setores_todos = NULL, *novo_setor = NULL, *achar_setor = NULL;
-    string nome_setor, nome_sensor;
-    char checagem_exclusao;
+    sensor_t *sensores_todos = NULL, *novo_sensor = NULL;
+    setores_t *setores_todos = NULL, *novo_setor = NULL;
 
     srand(time(NULL));
     limpar_tela();
@@ -142,37 +141,8 @@ int main() {
                     }
                 } while (opcao_b != FIM);
                 break;
-            case 7:
-                    printf("digite o nome do setor que quer remover o sensor: ");
-                    fgets(nome_setor, T_STR, stdin);
-                    retirar_enter(nome_setor);
-
-                    achar_setor = procurar_setor(setores_todos, nome_setor);
-
-                    if (achar_setor == NULL)
-                        printf("setor nao encontrado\n");
-                    else {
-                        printf("digite o nome do sensor que se quer excluir: ");
-                        fgets(nome_sensor, T_STR, stdin);
-                        retirar_enter(nome_sensor);
-
-                        achar_sensor = procurar_sensor(achar_setor, nome_sensor);
-
-                        if (achar_sensor == NULL)
-                            printf("sensor nao achado\n");
-                        else {
-                            printf("voce deseja excluir o sensor %s do setor %s?(S/N): ", achar_sensor->nome_s, achar_setor->lugar);
-                            scanf("%c", &checagem_exclusao);
-                            getchar();
-                            if (checagem_exclusao == 's' || checagem_exclusao == 'S') {
-                                excluir_lista(&setores_todos, achar_sensor, achar_setor);
-                                printf("sensor excluido do setor com sucesso\n");
-                                botao_pause();
-                                limpar_tela();
-                            }
-                        }
-                }
-                break;
+            case 7: execucao_lista(setores_todos);
+                    break;
             case 8:
                 limpar_tela();
                 do {
@@ -646,15 +616,52 @@ sensor_t* procurar_sensor(setores_t *lista, string str)
     return NULL;
 }
 
+void execucao_lista(setores_t *lista)
+{
+    setores_t *achar_setor = NULL;
+    sensor_t *achar_sensor = NULL;
+    string nome_setor, nome_sensor;
+    char checagem_exclusao;
+
+    printf("digite o nome do setor que quer remover o sensor: ");
+    fgets(nome_setor, T_STR, stdin);
+    retirar_enter(nome_setor);
+
+    achar_setor = procurar_setor(lista, nome_setor);
+
+    if (achar_setor == NULL)
+        printf("setor nao encontrado\n");
+    else {
+        printf("digite o nome do sensor que se quer excluir: ");
+        fgets(nome_sensor, T_STR, stdin);
+        retirar_enter(nome_sensor);
+
+        achar_sensor = procurar_sensor(achar_setor, nome_sensor);
+
+        if (achar_sensor == NULL) printf("sensor nao achado\n");
+        else {
+            printf("voce deseja excluir o sensor %s do setor %s?(S/N): ", achar_sensor->nome_s, achar_setor->lugar);
+            scanf("%c", &checagem_exclusao);
+            getchar();
+            if (checagem_exclusao == 's' || checagem_exclusao == 'S') {
+                excluir_lista(&lista, achar_sensor, achar_setor);
+                printf("sensor excluido do setor com sucesso\n");
+                botao_pause();
+                limpar_tela();
+            }
+        }
+    }
+}
+
 void excluir_lista(setores_t **lista, sensor_t *sensor_excluido, setores_t *setor_achado) 
 {
     for (setores_t *set = *lista; set != NULL; set = set->proximo) {
-        if (strcmp(setor_achado->lugar, set->lugar) == 0) {
+        if (!strcmp(setor_achado->lugar, set->lugar)) {
             relatorio_t *atual = set->relatorios;
             relatorio_t *anterior = NULL;
 
             while (atual != NULL) {
-                if (strcmp(atual->sensor.nome_s, sensor_excluido->nome_s) == 0) {
+                if (!strcmp(atual->sensor.nome_s, sensor_excluido->nome_s)) {
                     if (anterior == NULL) {
                         set->relatorios = atual->proximo;
                     } else {
@@ -689,14 +696,7 @@ void exportar_arquivo_binario(sensor_t *lista_sensores, setores_t *lista_setores
         fwrite(lista_setores, sizeof(setores_t), 1, fp);
 
         relatorio_t *aux = lista_setores->relatorios;
-        int numero = 0;
-        while (aux != NULL) {
-            numero++;
-            aux = aux->proximo;
-        }
-        fwrite(&numero, sizeof(int), 1, fp);
-
-        aux = lista_setores->relatorios;
+        
         while (aux != NULL) {
             fwrite(&(aux->sensor), sizeof(sensor_t), 1, fp);
             fwrite(&(aux->horario_1), sizeof(int), 1, fp);
@@ -782,7 +782,6 @@ void exportar_arquivo_html(sensor_t *lista_sensores, setores_t *lista_setores, c
 
 void importar_arq(sensor_t **lista_sensores, setores_t **lista_setores, char *nome_arq_sensores, char *nome_arq_setores) 
 {
-
     FILE *fp = fopen(nome_arq_sensores, "rb");
     if (fp == NULL) {
         printf("Arquivo de sensores nao encontrado\n");
@@ -790,17 +789,23 @@ void importar_arq(sensor_t **lista_sensores, setores_t **lista_setores, char *no
     }
 
     sensor_t *novo = NULL;
+    
     while (!feof(fp)) {
         novo = (sensor_t*)malloc(sizeof(sensor_t));
-        size_t lidos = fread(novo, sizeof(sensor_t), 1, fp);
-        if (lidos == 0) {
-            free(novo);
-            break;
-        }
+        
+        fread(novo, sizeof(sensor_t), 1, fp);
         novo->proximo = NULL;
-        inserir_na_lista_sensores(lista_sensores, novo);
+        
+        if(!feof(fp)){
+            inserir_na_lista_sensores(lista_sensores, novo);
+        }
+        else{
+            free(novo);
+        }
+
     }
     fclose(fp);
+    //primeira parte
 
     FILE *fp1 = fopen(nome_arq_setores, "rb");
     if (fp1 == NULL) {
@@ -810,18 +815,21 @@ void importar_arq(sensor_t **lista_sensores, setores_t **lista_setores, char *no
 
     setores_t *novo_setor = NULL;
     while (!feof(fp1)) {
+        
         novo_setor = (setores_t*)malloc(sizeof(setores_t));
-        size_t lidos = fread(novo_setor, sizeof(setores_t), 1, fp1);
-        if (lidos == 0) {
-            free(novo_setor);
-            break;
+        
+        fread(novo_setor, sizeof(setores_t), 1, fp1);
+
+        if(!feof(fp1)){
+            novo_setor->relatorios = NULL;
         }
-        novo_setor->relatorios = NULL;
+        else{
+            free(novo_setor);
+            fclose(fp1);
+            return;
+        }
 
-        int count;
-        fread(&count, sizeof(int), 1, fp1);
-
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < novo_setor->qtd_sensores_por_setor; i++) {
             relatorio_t *novo_rel = (relatorio_t*)malloc(sizeof(relatorio_t));
             fread(&(novo_rel->sensor), sizeof(sensor_t), 1, fp1);
             fread(&(novo_rel->horario_1), sizeof(int), 1, fp1);
@@ -832,7 +840,9 @@ void importar_arq(sensor_t **lista_sensores, setores_t **lista_setores, char *no
 
             if (novo_setor->relatorios == NULL) {
                 novo_setor->relatorios = novo_rel;
-            } else {
+            } 
+            
+            else {
                 relatorio_t *aux = novo_setor->relatorios;
                 while (aux->proximo != NULL) {
                     aux = aux->proximo;
